@@ -1,0 +1,140 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Map2Map Chat API",
+    "version": "1.0.0",
+    "description": "API for Map2Map's chatbot service, compatible with tawk.to webhooks"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5005",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://your-production-url.com",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/chat": {
+      "post": {
+        "summary": "Get chatbot reply",
+        "description": "Processes incoming messages and returns AI-generated responses. Compatible with tawk.to webhooks.",
+        "tags": ["Chat"],
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event": {
+                    "type": "string",
+                    "description": "Event type (e.g., 'chat_message')",
+                    "example": "chat_message"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "The user's message",
+                    "example": "How can I claim my business on Google?"
+                  },
+                  "visitor": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "example": "John Doe"
+                      },
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john@example.com"
+                      }
+                    }
+                  },
+                  "property": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "example": "property_123"
+                      }
+                    }
+                  }
+                },
+                "required": ["message"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response with AI-generated reply",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reply": {
+                      "type": "string",
+                      "description": "The AI-generated response message",
+                      "example": "To claim your business on Google, you'll need to verify your business through Google Business Profile..."
+                    },
+                    "custom_fields": {
+                      "type": "object",
+                      "description": "Additional data to be stored with the chat"
+                    }
+                  },
+                  "required": ["reply"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request format"
+          },
+          "401": {
+            "description": "Unauthorized - Invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "name": "X-API-Key",
+        "in": "header"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "code": {
+            "type": "integer",
+            "description": "Error code"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}
