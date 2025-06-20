@@ -19,28 +19,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Use a smaller model for Render's free tier
-model_name = "facebook/bart-large-cnn"  # Smaller than flan-t5
+# Use a tiny model for Render's free tier (under 300MB RAM)
+model_name = "sshleifer/distilbart-cnn-12-6"  # Very small distilled BART model
 
-# Initialize tokenizer and model with memory optimizations
+# Initialize tokenizer and model with minimal memory footprint
 try:
     print("Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     
-    print("Loading model with memory optimizations...")
+    print("Loading model with minimal memory usage...")
     model = AutoModelForSeq2SeqLM.from_pretrained(
         model_name,
-        device_map="auto",
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        low_cpu_mem_usage=True,  # Reduces peak memory usage
-        offload_folder="offload"  # Offloads some weights to disk if needed
+        torch_dtype=torch.float32,  # Use float32 for maximum compatibility
+        low_cpu_mem_usage=True      # Keep memory usage as low as possible
     )
     model.eval()
-    print(f"{model_name} loaded successfully")
+    print(f"{model_name} loaded successfully (small model for free tier)")
     
 except Exception as e:
-    print(f"Error loading GPT-2 Medium model: {str(e)}")
-    raise e  # Raise exception clearly if GPT-2 Medium fails to load
+    print(f"Error loading model: {str(e)}")
+    raise e  # Re-raise the exception to see the full error
 
 MAP2MAP_KNOWLEDGE = {
     "services": [
