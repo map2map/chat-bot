@@ -311,6 +311,7 @@ if __name__ == "__main__":
     import uvicorn
     import os
     port = int(os.environ.get("PORT", 10000))
+    print(f"Starting server on port {port} with model: {model_name}")
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
