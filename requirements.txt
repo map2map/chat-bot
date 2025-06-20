@@ -5,19 +5,19 @@ python-multipart==0.0.6
 python-dotenv==1.0.0
 
 # ML dependencies - will be installed from PyTorch's wheelhouse
-torch==2.7.1
-torchvision==0.18.1
-torchaudio==2.7.1
+torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
 
 # NLP libraries with specific versions that have pre-built wheels
-transformers>=4.30.0,<4.40.0
-sentencepiece>=0.1.99,<0.2.0
-tokenizers>=0.15.0,<0.16.0
-accelerate>=0.25.0,<0.26.0
+transformers==4.30.2
+sentencepiece==0.1.99
+tokenizers==0.13.3
+accelerate==0.20.3
 
 # Memory optimization
 psutil==5.9.5  # For monitoring memory usage
 
 # Required for some tokenizers
-numpy>=1.20.0,<2.0.0
-packaging>=20.0,<24.0
+numpy==1.24.3
+packaging==23.1
