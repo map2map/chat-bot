@@ -309,15 +309,8 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    import gc
-    
-    # Clear any unused memory
-    gc.collect()
-    
-    # Configure Uvicorn with worker timeout and keep-alive settings
-    port = int(os.environ.get("PORT", 8000))
-    print(f"Starting server on port {port} with model: {model_name}")
-    
+    import os
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
