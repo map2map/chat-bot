@@ -5,10 +5,10 @@ python-multipart>=0.0.5,<0.1.0
 python-dotenv>=0.19.0,<1.0.0
 
 # ML dependencies with CPU-only PyTorch (lighter weight)
-torch>=2.0.0,<2.1.0  # Using CPU-only version to reduce size
-transformers>=4.30.0,<4.36.0
-sentencepiece>=0.1.99,<0.2.0  # Required for some tokenizers
-accelerate>=0.20.0,<0.21.0
+torch>=2.5.0,<2.8.0  # Using latest stable version
+transformers>=4.30.0,<4.40.0
+sentencepiece>=0.1.99,<0.3.0  # Required for some tokenizers
+accelerate>=0.20.0,<0.30.0
 
 # Memory optimization
 psutil>=5.9.0,<6.0.0  # For monitoring memory usage
