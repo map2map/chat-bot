@@ -5,9 +5,9 @@ python-multipart==0.0.6
 python-dotenv==1.0.0
 
 # ML dependencies - will be installed from PyTorch's wheelhouse
-torch>=2.7.1,<2.8.0
-torchvision>=0.18.1,<0.19.0
-torchaudio>=2.7.1,<2.8.0
+torch==2.7.1
+torchvision==0.18.1
+torchaudio==2.7.1
 
 # NLP libraries with specific versions that have pre-built wheels
 transformers>=4.30.0,<4.40.0

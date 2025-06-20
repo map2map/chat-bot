@@ -4,16 +4,12 @@ services:
     env: python
     buildCommand: |
       python -m pip install --upgrade pip
-      pip install --no-cache-dir --only-binary :all: \
-        torch==2.7.1+cpu \
-        torchvision==0.18.1+cpu \
-        torchaudio==2.7.1+cpu \
-        --index-url https://download.pytorch.org/whl/cpu
-      pip install --no-cache-dir --only-binary :all: -r requirements.txt
+      pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+      pip install --no-cache-dir -r requirements.txt
     startCommand: uvicorn main:app --host=0.0.0.0 --port=$PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.10.13  # Explicitly using Python 3.10 for PyTorch compatibility
       - key: PORT
         value: 10000
     plan: free
