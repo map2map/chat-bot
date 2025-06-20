@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from transformers import pipeline, AutoModelForCausalLM, AutoTokenizer
+from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 import torch
 import asyncio
 from typing import Optional
@@ -18,34 +18,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Use a faster, more responsive model
-model_name = "microsoft/DialoGPT-small"  # Better for conversation than raw GPT-2
+# Use Google's FLAN-T5 Small for better performance and efficiency
+model_name = "google/flan-t5-small"
 
-# Initialize tokenizer and model with better defaults
+# Initialize tokenizer and model with FLAN-T5
 try:
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
-    tokenizer.pad_token = tokenizer.eos_token  # Set padding token
     
     print("Loading model...")
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForSeq2SeqLM.from_pretrained(
         model_name,
-        pad_token_id=tokenizer.eos_token_id,
         device_map="auto",
         torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
     )
     model.eval()
-    print("Model loaded successfully")
+    print("GPT-2 Medium loaded successfully")
     
 except Exception as e:
-    print(f"Error loading model: {str(e)}")
-    print("Falling back to GPT-2...")
-    model_name = "gpt2"
-    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
-    tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name)
-    model.eval()
-    print("GPT-2 loaded as fallback")
+    print(f"Error loading GPT-2 Medium model: {str(e)}")
+    raise e  # Raise exception clearly if GPT-2 Medium fails to load
 
 MAP2MAP_KNOWLEDGE = {
     "services": [
@@ -74,7 +66,7 @@ MAP2MAP_KNOWLEDGE = {
     },
     "faq": {
         "claim_business": "To claim your business on Google, you'll need to verify your business through Google Business Profile. We can guide you through this process or handle it for you.",
-        "improve_ranking": "To improve your Google Maps ranking, we optimize your business profile, gather positive reviews, ensure NAP consistency, and improve local citations.",
+        "improve_ranking": "Improving your Google Maps ranking involves several key strategies that we specialize in:\n\n1. **Complete Business Profile Optimization**: We ensure your Google Business Profile is 100% complete with accurate business information, relevant categories, high-quality photos, and detailed business descriptions.\n\n2. **Review Management**: We help you gather more positive reviews and professionally respond to all reviews, which significantly impacts your local search ranking.\n\n3. **NAP Consistency**: We maintain consistent Name, Address, and Phone number (NAP) information across all online directories and citations.\n\n4. **Local Citations & Backlinks**: We build high-quality local citations and backlinks from reputable directories and local business associations.\n\n5. **Google Posts & Q&A**: We regularly create engaging Google Posts and manage Q&A sections to improve engagement.\n\n6. **Local SEO Content**: We optimize your website content with local keywords and create location-specific landing pages.\n\n7. **Mobile Optimization**: We ensure your website is mobile-friendly, as Google prioritizes mobile-optimized sites in local search results.\n\nMost businesses see noticeable improvements within 2-3 months of consistent optimization. Would you like us to conduct a free audit of your current Google Business Profile?",
         "negative_reviews": "We help manage negative reviews by professionally responding to them and working with you to address any legitimate concerns raised by customers.",
         "service_area": "Yes, we serve businesses across India and can help optimize your Google Business Profile for any location.",
         "start_process": "To get started, simply contact our team with your business details and the services you're interested in. We'll provide a free consultation and quote.",
@@ -118,177 +110,187 @@ async def chat(query: Query):
         print(f"\n--- New Chat Request ---")
         print(f"Message: {query.message}")
         
-        # Prepare the prompt with system message and user input
-        prompt = f"""{SYSTEM_PROMPT}
+        # Handle common questions directly from our knowledge base first
+        message_lower = query.message.lower()
+        faq = MAP2MAP_KNOWLEDGE['faq']
+        reply = None
         
-        Current conversation:
-        User: {query.message}
-        Assistant:"""
+        # Handle greetings
+        if any(term in message_lower for term in ['hi', 'hello', 'hey', 'greetings']):
+            reply = "Hello! I'm your Map2Map assistant. How can I help you with your Google Maps management today?"
+            
+        # FAQ Handling - Check these before model generation
+        elif any(term in message_lower for term in ['claim', 'verify', 'verification', 'how do i claim']):
+            reply = faq['claim_business']
+        elif any(term in message_lower for term in ['rank', 'ranking', 'seo', 'search ranking', 'improve ranking']):
+            reply = faq['improve_ranking']
+        elif any(term in message_lower for term in ['negative', 'bad review', 'complaint']):
+            reply = faq['negative_reviews']
+        elif any(term in message_lower for term in ['location', 'area', 'city', 'country', 'service area']):
+            reply = faq['service_area']
+        elif any(term in message_lower for term in ['start', 'begin', 'get started', 'sign up', 'how do i start']):
+            reply = faq['start_process']
+        elif any(term in message_lower for term in ['cancel', 'stop', 'end service', 'cancel service']):
+            reply = faq['cancellation']
+        elif any(term in message_lower for term in ['security', 'privacy', 'data']):
+            reply = faq['data_security']
+        elif any(term in message_lower for term in ['different', 'better', 'unique', 'why choose', 'what makes you different']):
+            reply = faq['difference']
+        # Handle other common questions
+        elif any(term in message_lower for term in ['price', 'cost', 'how much', 'payment']):
+            reply = MAP2MAP_KNOWLEDGE['pricing']
+        elif any(term in message_lower for term in ['contact', 'email', 'phone', 'reach', 'get in touch', 'call', 'number']):
+            reply = f"You can reach us at:\n{MAP2MAP_KNOWLEDGE['contact']}"
+        elif any(term in message_lower for term in ['service', 'what do you', 'offer', 'provide']):
+            reply = "Map2Map offers the following services:\n" + "\n".join([f"• {s}" for s in MAP2MAP_KNOWLEDGE['services']])
+        elif any(term in message_lower for term in ['what is map2map', 'who are you', 'about']):
+            reply = f"{MAP2MAP_KNOWLEDGE['about']}\n\nOur services include:\n" + "\n".join([f"• {s}" for s in MAP2MAP_KNOWLEDGE['services']])
+        elif any(term in message_lower for term in ['how long', 'when will', 'time frame', 'duration', 'when can i expect']):
+            timing = MAP2MAP_KNOWLEDGE['timing']
+            if 'listing' in message_lower or 'update' in message_lower:
+                reply = timing['listing_updates']
+            elif 'review' in message_lower or 'response' in message_lower:
+                reply = timing['review_responses']
+            elif 'report' in message_lower or 'analytics' in message_lower:
+                reply = timing['reporting']
+            elif 'support' in message_lower or 'response time' in message_lower:
+                reply = timing['support_response']
+            else:
+                reply = f"{timing['standard']}\n\nMore specific timing information:\n" + \
+                       f"\n• {timing['listing_updates']}" + \
+                       f"\n• {timing['review_responses']}" + \
+                       f"\n• {timing['reporting']}"
+        elif any(term in message_lower for term in ['benefit', 'advantage', 'why should i', 'why choose']):
+            reply = "Map2Map offers several benefits for your business:\n" + "\n".join([f"• {b}" for b in MAP2MAP_KNOWLEDGE['benefits']])
         
-        # Tokenize input
-        print("Tokenizing input...")
-        try:
-            inputs = tokenizer(
-                prompt,
-                return_tensors="pt",
-                truncation=True,
-                max_length=512,
-                padding='max_length'  # Ensure consistent input length
-            )
+        # If no FAQ match, use the model to generate a response
+        if reply is None:
+            # Prepare the prompt with system message and user input
+            prompt = f"""{SYSTEM_PROMPT}
             
-            # Move to GPU if available
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            inputs = {k: v.to(device) for k, v in inputs.items()}
+            Current conversation:
+            User: {query.message}
+            Assistant:"""
             
-            # Generate response with timeout
-            print("Generating response...")
+            # Tokenize input
+            print("Tokenizing input...")
             try:
-                # Generate with a timeout of 10 seconds using more conservative settings
-                outputs = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        model.generate,
-                        **{
-                            'input_ids': inputs['input_ids'],
-                            'attention_mask': inputs['attention_mask'],
-                            'max_new_tokens': 100,  # Shorter responses
-                            'temperature': 0.5,  # Lower temperature for more focused responses
-                            'top_p': 0.85,  # More focused sampling
-                            'top_k': 30,  # Limit to top 30 tokens
-                            'do_sample': True,
-                            'pad_token_id': tokenizer.eos_token_id,
-                            'no_repeat_ngram_size': 3,  # More restrictive on repetition
-                            'num_return_sequences': 1,
-                            'early_stopping': True,
-                            'repetition_penalty': 1.5,  # Stronger penalty for repetition
-                            'length_penalty': 0.8,  # Discourage overly long responses
-                            'typical_p': 0.9  # Encourage more typical/expected responses
-                        }
-                    ),
-                    timeout=10.0  # Shorter timeout
+                inputs = tokenizer(
+                    prompt,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=512,
+                    padding='max_length'  # Ensure consistent input length
                 )
                 
-                # Decode response and clean up
-                response = tokenizer.decode(
-                    outputs[0],
-                    skip_special_tokens=True,
-                    clean_up_tokenization_spaces=True
-                )
+                # Move to GPU if available
+                device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                inputs = {k: v.to(device) for k, v in inputs.items()}
                 
-                # Extract only the assistant's response
-                reply = response.split("Assistant:")[-1].strip()
-                
-                # Clean up any remaining special tokens or artifacts
-                reply = (
-                    reply.replace('"', '')
-                    .replace('\n', ' ')
-                    .replace('  ', ' ')
-                    .strip()
-                )
-                
-                # Ensure the response ends with proper punctuation
-                if reply and reply[-1] not in {'.', '!', '?', ':', ';'}: 
-                    reply = reply.rstrip(',-') + '. '
-                
-                # Handle common questions directly from our knowledge base
-                message_lower = query.message.lower()
-                faq = MAP2MAP_KNOWLEDGE['faq']
-                
-                if not reply or len(reply) < 10 or 'i am' in reply.lower() or 'i\'m here' in reply.lower() or 'i\'d be happy' in reply.lower():
-                    # Pricing questions
-                    if any(term in message_lower for term in ['price', 'cost', 'how much', 'payment']):
-                        reply = MAP2MAP_KNOWLEDGE['pricing']
+                # Generate response with timeout
+                print("Generating response...")
+                try:
+                    # Generate with a timeout of 10 seconds using more conservative settings
+                    outputs = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            model.generate,
+                            **{
+                                'input_ids': inputs['input_ids'],
+                                'attention_mask': inputs['attention_mask'],
+                                'max_new_tokens': 100,  # Shorter responses
+                                'temperature': 0.5,  # Lower temperature for more focused responses
+                                'top_p': 0.85,  # More focused sampling
+                                'top_k': 30,  # Limit to top 30 tokens
+                                'do_sample': True,
+                                'pad_token_id': tokenizer.eos_token_id,
+                                'no_repeat_ngram_size': 3,  # More restrictive on repetition
+                                'num_return_sequences': 1,
+                                'early_stopping': True,
+                                'repetition_penalty': 1.5,  # Stronger penalty for repetition
+                                'length_penalty': 0.8,  # Discourage overly long responses
+                                'typical_p': 0.9  # Encourage more typical/expected responses
+                            }
+                        ),
+                        timeout=10.0  # Shorter timeout
+                    )
                     
-                    # Contact information
-                    elif any(term in message_lower for term in ['contact', 'email', 'phone', 'reach', 'get in touch', 'call', 'number']):
-                        reply = f"You can reach us at:\n{MAP2MAP_KNOWLEDGE['contact']}"
+                    # Decode response
+                    response = tokenizer.decode(
+                        outputs[0],
+                        skip_special_tokens=False,
+                        clean_up_tokenization_spaces=True
+                    )
                     
-                    # Services offered
-                    elif any(term in message_lower for term in ['service', 'what do you', 'offer', 'provide']):
-                        reply = "Map2Map offers the following services:\n" + "\n".join([f"• {s}" for s in MAP2MAP_KNOWLEDGE['services']])
-                    
-                    # About Map2Map
-                    elif any(term in message_lower for term in ['what is map2map', 'who are you', 'about']):
-                        reply = f"{MAP2MAP_KNOWLEDGE['about']}\n\nOur services include:\n" + "\n".join([f"• {s}" for s in MAP2MAP_KNOWLEDGE['services']])
-                    
-                    # Timing questions
-                    elif any(term in message_lower for term in ['how long', 'when will', 'time frame', 'duration', 'when can i expect']):
-                        timing = MAP2MAP_KNOWLEDGE['timing']
-                        if 'listing' in message_lower or 'update' in message_lower:
-                            reply = timing['listing_updates']
-                        elif 'review' in message_lower or 'response' in message_lower:
-                            reply = timing['review_responses']
-                        elif 'report' in message_lower or 'analytics' in message_lower:
-                            reply = timing['reporting']
-                        elif 'support' in message_lower or 'response time' in message_lower:
-                            reply = timing['support_response']
-                        else:
-                            reply = f"{timing['standard']}\n\nMore specific timing information:\n" + \
-                                   f"\n• {timing['listing_updates']}" + \
-                                   f"\n• {timing['review_responses']}" + \
-                                   f"\n• {timing['reporting']}"
-                    
-                    # FAQ Handling
-                    elif any(term in message_lower for term in ['claim', 'verify', 'verification']):
-                        reply = faq['claim_business']
-                    elif any(term in message_lower for term in ['rank', 'ranking', 'seo', 'search ranking']):
-                        reply = faq['improve_ranking']
-                    elif any(term in message_lower for term in ['negative', 'bad review', 'complaint']):
-                        reply = faq['negative_reviews']
-                    elif any(term in message_lower for term in ['location', 'area', 'city', 'country']):
-                        reply = faq['service_area']
-                    elif any(term in message_lower for term in ['start', 'begin', 'get started', 'sign up']):
-                        reply = faq['start_process']
-                    elif any(term in message_lower for term in ['cancel', 'stop', 'end service']):
-                        reply = faq['cancellation']
-                    elif any(term in message_lower for term in ['security', 'privacy', 'data']):
-                        reply = faq['data_security']
-                    elif any(term in message_lower for term in ['different', 'better', 'unique', 'why choose']):
-                        reply = faq['difference']
-                    
-                    # Benefits
-                    elif any(term in message_lower for term in ['benefit', 'advantage', 'why should i', 'why choose']):
-                        reply = "Map2Map offers several benefits for your business:\n" + "\n".join([f"• {b}" for b in MAP2MAP_KNOWLEDGE['benefits']])
-                    
-                    # Default response with more suggestions
+                    # Extract only the assistant's response
+                    if "Assistant:" in response:
+                        reply = response.split("Assistant:", 1)[1].strip()
                     else:
-                        reply = """I'm here to help with information about Map2Map's Google Maps management services. Here are some common questions I can help with:
-                        \n• What services do you offer?
-                        \n• How can you improve my Google ranking?
-                        \n• How do I claim my business on Google?
-                        \n• What makes Map2Map different?
-                        \n• How do I get started?
-                        \n• What are your business hours?
-                        \nFeel free to ask me anything about our services!"""
+                        reply = response.strip()
+                    
+                    # Clean up the response
+                    reply = (
+                        reply.replace('"', '')
+                        .replace('\n', ' ')
+                        .replace('  ', ' ')
+                        .strip()
+                    )
+                    
+                    # Remove any remaining special tokens or incomplete sentences
+                    reply = ' '.join([word for word in reply.split() if not word.startswith('<') and not word.endswith('>')])
+                    
+                    # Ensure the response is meaningful (at least 3 words and contains letters)
+                    if len(reply.split()) < 3 or not any(c.isalpha() for c in reply):
+                        reply = None  # Will trigger fallback response
+                    # Ensure proper punctuation
+                    elif reply and reply[-1] not in {'.', '!', '?', ':', ';'}: 
+                        reply = reply.rstrip(',-') + '.'
                 
-                print("Response generated successfully")
-                print(f"Reply: {reply[:200]}...")  # Log first 200 chars
+                except asyncio.TimeoutError:
+                    error_msg = "Generation took too long. Please try again with a more specific question."
+                    print(error_msg)
+                    return JSONResponse(
+                        status_code=408,
+                        content={"error": error_msg}
+                    )
+                    
+            except Exception as e:
+                error_msg = f"Error processing your request: {str(e)}"
+                print(f"Error: {error_msg}")
+                print(traceback.format_exc())
+                reply = None
+        
+        # If we still don't have a valid reply, use the default response
+        if not reply:
+            # Default response with suggestions
+            reply = """I'm here to help with information about Map2Map's Google Maps management services. Here are some common questions I can help with:
+            \n• What services do you offer?
+            \n• How can you improve my Google ranking?
+            \n• How do I claim my business on Google?
+            \n• What makes Map2Map different?
+            \n• How do I get started?
+            \n• What are your business hours?
+            \nFeel free to ask me anything about our services!"""
+        
+        print("Response generated successfully")
+        print(f"Reply: {reply[:200]}...")  # Log first 200 chars
+        
+        return JSONResponse(content={"reply": reply})
                 
-                return JSONResponse(content={"reply": reply})
-                
-            except asyncio.TimeoutError:
-                error_msg = "Generation took too long. Please try again with a more specific question."
-                print(error_msg)
-                return JSONResponse(
-                    status_code=408,
-                    content={"error": error_msg}
-                )
-                
-        except Exception as e:
-            error_msg = f"Error processing your request: {str(e)}"
-            print(f"Error: {error_msg}")
-            print(traceback.format_exc())
-            return JSONResponse(
-                status_code=500,
-                content={"error": "Sorry, I'm having trouble generating a response. Please try again."}
-            )
-            
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
+    except asyncio.TimeoutError:
+        error_msg = "Generation took too long. Please try again with a more specific question."
         print(error_msg)
+        return JSONResponse(
+            status_code=408,
+            content={"error": error_msg}
+        )
+                
+    except Exception as e:
+        error_msg = f"Error processing your request: {str(e)}"
+        print(f"Error: {error_msg}")
         print(traceback.format_exc())
         return JSONResponse(
             status_code=500,
-            content={"error": "An unexpected error occurred. Please try again later."}
+            content={"error": "Sorry, I'm having trouble generating a response. Please try again."}
         )
 
 @app.get("/openapi.json")
