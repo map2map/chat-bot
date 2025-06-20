@@ -5,10 +5,10 @@ services:
     buildCommand: |
       python -m pip install --upgrade pip
       pip install --no-cache-dir --only-binary :all: \
-        torch==2.2.1+cpu \
-        torchvision==0.17.1+cpu \
-        torchaudio==2.2.1+cpu \
-        -f https://download.pytorch.org/whl/torch_stable.html
+        torch==2.7.1+cpu \
+        torchvision==0.18.1+cpu \
+        torchaudio==2.7.1+cpu \
+        --index-url https://download.pytorch.org/whl/cpu
       pip install --no-cache-dir --only-binary :all: -r requirements.txt
     startCommand: uvicorn main:app --host=0.0.0.0 --port=$PORT
     envVars:
