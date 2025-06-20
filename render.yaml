@@ -10,4 +10,10 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: PIP_DEFAULT_TIMEOUT
+        value: "100"
+      - key: PIP_NO_CACHE_DIR
+        value: "1"
+      - key: PYTHON_VERSION
+        value: "3.9.18"
     plan: free
