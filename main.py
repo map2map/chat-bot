@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 import torch
 import asyncio
+import os
 from typing import Optional
 
 app = FastAPI()
@@ -300,3 +301,8 @@ def get_openapi_spec():
 @app.get("/test")
 async def test_page():
     return FileResponse("test.html")
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
