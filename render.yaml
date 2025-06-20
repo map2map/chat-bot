@@ -3,9 +3,13 @@ services:
     name: chat-bot
     env: python
     buildCommand: |
-      pip install --upgrade pip
-      pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-      pip install -r requirements.txt --no-deps
+      python -m pip install --upgrade pip
+      pip install --no-cache-dir --only-binary :all: \
+        torch==2.2.1+cpu \
+        torchvision==0.17.1+cpu \
+        torchaudio==2.2.1+cpu \
+        -f https://download.pytorch.org/whl/torch_stable.html
+      pip install --no-cache-dir --only-binary :all: -r requirements.txt
     startCommand: uvicorn main:app --host=0.0.0.0 --port=$PORT
     envVars:
       - key: PYTHON_VERSION
