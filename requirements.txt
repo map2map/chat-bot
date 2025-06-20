@@ -1,14 +1,17 @@
 # Core dependencies
-fastapi==0.104.1
-uvicorn==0.24.0
-python-multipart==0.0.6
-python-dotenv==1.0.0
+fastapi>=0.68.0,<0.95.0  # Latest stable version
+uvicorn>=0.15.0,<0.24.0
+python-multipart>=0.0.5,<0.1.0
+python-dotenv>=0.19.0,<1.0.0
 
-# ML dependencies
-torch==2.0.1
-transformers==4.35.2
-sentencepiece==0.1.99  # Required for some tokenizers
-accelerate==0.25.0
+# ML dependencies with CPU-only PyTorch (lighter weight)
+torch>=2.0.0,<2.1.0  # Using CPU-only version to reduce size
+transformers>=4.30.0,<4.36.0
+sentencepiece>=0.1.99,<0.2.0  # Required for some tokenizers
+accelerate>=0.20.0,<0.21.0
 
 # Memory optimization
-psutil==5.9.5  # For monitoring memory usage
+psutil>=5.9.0,<6.0.0  # For monitoring memory usage
+
+# Add explicit dependency for tokenizers
+tokenizers>=0.13.0,<0.14.0  # Required by transformers

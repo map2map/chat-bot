@@ -2,7 +2,9 @@ services:
   - type: web
     name: chat-bot
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install torch --index-url https://download.pytorch.org/whl/cpu
+      pip install -r requirements.txt
     startCommand: uvicorn main:app --host=0.0.0.0 --port=$PORT
     envVars:
       - key: PYTHON_VERSION
