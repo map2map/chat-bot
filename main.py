@@ -19,22 +19,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Use Google's FLAN-T5 Small for better performance and efficiency
-model_name = "google/flan-t5-small"
+# Use a smaller model for Render's free tier
+model_name = "facebook/bart-large-cnn"  # Smaller than flan-t5
 
-# Initialize tokenizer and model with FLAN-T5
+# Initialize tokenizer and model with memory optimizations
 try:
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
     
-    print("Loading model...")
+    print("Loading model with memory optimizations...")
     model = AutoModelForSeq2SeqLM.from_pretrained(
         model_name,
         device_map="auto",
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        low_cpu_mem_usage=True,  # Reduces peak memory usage
+        offload_folder="offload"  # Offloads some weights to disk if needed
     )
     model.eval()
-    print("GPT-2 Medium loaded successfully")
+    print(f"{model_name} loaded successfully")
     
 except Exception as e:
     print(f"Error loading GPT-2 Medium model: {str(e)}")
@@ -302,14 +304,29 @@ def get_openapi_spec():
 async def test_page():
     return FileResponse("test.html")
 
+# Add a health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "model": model_name}
+
 if __name__ == "__main__":
     import uvicorn
+    import gc
+    
+    # Clear any unused memory
+    gc.collect()
+    
+    # Configure Uvicorn with worker timeout and keep-alive settings
     port = int(os.environ.get("PORT", 8000))
-    print(f"Starting server on port {port}")
+    print(f"Starting server on port {port} with model: {model_name}")
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
-        log_level="info"
+        reload=False,  # Disable reload in production
+        log_level="info",
+        workers=1,  # Use only 1 worker to reduce memory usage
+        limit_concurrency=10,  # Limit concurrent connections
+        timeout_keep_alive=30  # Close idle connections after 30 seconds
     )
